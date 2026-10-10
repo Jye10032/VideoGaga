@@ -5,6 +5,12 @@ import { Check, ImagePlus, Plus, Trash2, WandSparkles } from "lucide-react";
 import { Asset, StudioData } from "../../lib/studio/types";
 import { imageUpload } from "../../lib/studio/media";
 import { Action, Empty } from "./Controls";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 export default function AssetPanel({
   data,
   edit,
@@ -21,6 +27,8 @@ export default function AssetPanel({
   onError: (e: string) => void;
 }) {
   const [tab, setTab] = useState<Asset["kind"]>("character");
+  const [previewId, setPreviewId] = useState("");
+  const preview = data.assets.find((asset) => asset.id === previewId);
   function patch(id: string, change: Partial<Asset>) {
     edit((d) => ({
       ...d,
@@ -100,7 +108,14 @@ export default function AssetPanel({
               <article className="studio-asset-card" key={asset.id}>
                 <div className="studio-asset-image">
                   {asset.image ? (
-                    <img src={asset.image} alt={asset.name} />
+                    <button
+                      type="button"
+                      className="studio-asset-open"
+                      aria-label={`查看完整参考图 ${asset.name}`}
+                      onClick={() => setPreviewId(asset.id)}
+                    >
+                      <img src={asset.image} alt={asset.name} />
+                    </button>
                   ) : (
                     <ImagePlus size={32} />
                   )}
@@ -207,6 +222,28 @@ export default function AssetPanel({
             ))}
         </div>
       )}
+      <Dialog
+        open={Boolean(preview?.image)}
+        onOpenChange={(open) => {
+          if (!open) setPreviewId("");
+        }}
+      >
+        <DialogContent className="app-surface studio-dialog studio-reference-dialog">
+          <DialogHeader>
+            <DialogTitle>{preview?.name} · 完整参考图</DialogTitle>
+          </DialogHeader>
+          {preview?.image && (
+            <img
+              className="studio-reference-image"
+              src={preview.image}
+              alt={preview.name}
+            />
+          )}
+          <p className="studio-helper">
+            保留完整画幅，可核对四视图布局、角色外观与道具细节。
+          </p>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

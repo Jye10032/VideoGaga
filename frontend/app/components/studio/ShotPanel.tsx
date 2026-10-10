@@ -235,7 +235,7 @@ export default function ShotPanel({
           </label>
         </div>
         <label>
-          对白或旁白
+          旁白 / 对白
           <textarea
             rows={2}
             value={shot.dialogue}

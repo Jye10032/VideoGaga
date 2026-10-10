@@ -52,6 +52,24 @@ export async function createProject(name: string, demo: boolean) {
   await localPut(p);
   return p;
 }
+export async function createAcceptanceProject(
+  onProgress: (message: string) => void,
+) {
+  const { acceptanceSampleData, ACCEPTANCE_SAMPLE_NAME } =
+    await import("./examples/extreme-night");
+  // Finish preparation before writing, so failed downloads leave no partial project.
+  const data = await acceptanceSampleData(onProgress);
+  const project: StudioProject = {
+    id: "demo-" + crypto.randomUUID(),
+    name: ACCEPTANCE_SAMPLE_NAME,
+    mode: "demo",
+    updatedAt: new Date().toISOString(),
+    revision: 0,
+    data,
+  };
+  await localPut(project);
+  return project;
+}
 export async function loadProject(id: string): Promise<StudioProject> {
   if (!isDemo(id))
     return apiRequest<StudioProject>(

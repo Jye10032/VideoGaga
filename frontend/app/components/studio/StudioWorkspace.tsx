@@ -75,7 +75,13 @@ const steps = [
   },
 ];
 
-export default function StudioWorkspace({ id }: { id: string }) {
+export default function StudioWorkspace({
+  id,
+  initialStep = 0,
+}: {
+  id: string;
+  initialStep?: number;
+}) {
   const hydrated = useHydrated(),
     { isLoggedIn, openLogin, user } = useAuthContext();
   if (!hydrated)
@@ -103,9 +109,9 @@ export default function StudioWorkspace({ id }: { id: string }) {
         </Link>
       </main>
     );
-  return <Workspace key={`${id}:${user}`} id={id} />;
+  return <Workspace key={`${id}:${user}`} id={id} initialStep={initialStep} />;
 }
-function Workspace({ id }: { id: string }) {
+function Workspace({ id, initialStep }: { id: string; initialStep: number }) {
   const router = useRouter(),
     {
       project,
@@ -118,7 +124,7 @@ function Workspace({ id }: { id: string }) {
       discardDraft,
     } = useStudio(id),
     generation = useGeneration(id, current, editData, flush);
-  const [step, setStep] = useState(0),
+  const [step, setStep] = useState(initialStep),
     [notice, setNotice] = useState(""),
     [confirm, setConfirm] = useState<Confirmation | null>(null),
     [history, setHistory] = useState(false),
@@ -492,7 +498,8 @@ function Workspace({ id }: { id: string }) {
             {demo && (
               <div className="studio-demo-note">
                 <Sparkles size={14} />
-                本地演示：画面为示意图，配音为提示音，不调用任何模型 API。
+                本地演示：画面为示意图或参考资产拼板，配音为提示音，不调用任何模型
+                API。
               </div>
             )}
             {(error || notice || generation.error) && (
@@ -741,7 +748,7 @@ function Workspace({ id }: { id: string }) {
                         ) : (
                           <>
                             <label>
-                              对白
+                              旁白 / 对白
                               <textarea
                                 rows={2}
                                 value={shot.dialogue}

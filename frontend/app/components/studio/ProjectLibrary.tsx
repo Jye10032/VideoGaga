@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import {
   createProject,
+  createAcceptanceProject,
   listProjects,
   demoProjects,
   deleteProject,
@@ -46,6 +47,7 @@ function LibraryContent() {
     [name, setName] = useState(""),
     [demo, setDemo] = useState(true),
     [creating, setCreating] = useState(false),
+    [sampleProgress, setSampleProgress] = useState(""),
     [confirm, setConfirm] = useState<Confirmation | null>(null);
   const refresh = useCallback(
     () =>
@@ -82,6 +84,21 @@ function LibraryContent() {
       setCreating(false);
     }
   }
+  async function loadSample() {
+    if (creating) return;
+    setCreating(true);
+    setError("");
+    setSampleProgress("正在准备参考资产…");
+    try {
+      const project = await createAcceptanceProject(setSampleProgress);
+      router.push(`/studio/${project.id}?step=assets`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "示例载入失败，请重试");
+    } finally {
+      setCreating(false);
+      setSampleProgress("");
+    }
+  }
   const filtered = items.filter(
     (p) =>
       p.name.toLowerCase().includes(search.toLowerCase()) &&
@@ -102,6 +119,7 @@ function LibraryContent() {
           </Link>
           <Action
             primary
+            disabled={creating}
             onClick={() => {
               setName("");
               setDemo(!isLoggedIn);
@@ -118,17 +136,36 @@ function LibraryContent() {
           <span className="studio-tag">无需 API Key</span>
           <h2>先把完整流程走一遍</h2>
           <p>试写一个故事，整理资产与分镜，生成演示片段，导出可播放的视频。</p>
-          <Action
-            onClick={() => {
-              setName("我的第一部漫剧");
-              setDemo(true);
-              setDialog(true);
-            }}
-          >
-            <Play size={15} />
-            开始本地演示
-            <ArrowUpRight size={15} />
-          </Action>
+          <div className="studio-toolbar">
+            <Action
+              primary
+              disabled={creating}
+              onClick={() => void loadSample()}
+            >
+              <Clapperboard size={15} />
+              {sampleProgress || "载入验收示例"}
+            </Action>
+            <Action
+              disabled={creating}
+              onClick={() => {
+                setName("我的第一部漫剧");
+                setDemo(true);
+                setDialog(true);
+              }}
+            >
+              <Play size={15} />
+              开始本地演示
+              <ArrowUpRight size={15} />
+            </Action>
+          </div>
+          <p className="studio-helper" role="status">
+            《极夜崩塌》验收节选 · 三场 / 18 镜头 / 10 项资产，含 7
+            张参考图。每次载入为独立副本。
+          </p>
+          <p className="studio-helper">
+            分镜为参考资产拼板，可继续生成本地演示片段；尚未生成 AI
+            视频或真人配音。
+          </p>
         </div>
         <div className="studio-welcome-art" aria-hidden="true">
           <div className="studio-film-frame">
