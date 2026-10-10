@@ -1,6 +1,7 @@
 "use client";
 import { ButtonHTMLAttributes, ReactNode } from "react";
 import { LoaderCircle, AlertCircle, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -18,15 +19,17 @@ export function Action({
   primary?: boolean;
 }) {
   return (
-    <button
+    <Button
       type="button"
       {...props}
       disabled={busy || props.disabled}
-      className={`studio-button ${primary ? "primary" : ""} ${props.className || ""}`}
+      aria-busy={busy || undefined}
+      variant={primary ? "default" : "outline"}
+      className={`studio-action ${props.className || ""}`}
     >
       {busy && <LoaderCircle size={16} className="studio-spin" />}
       {children}
-    </button>
+    </Button>
   );
 }
 export function Notice({

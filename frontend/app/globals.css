@@ -64,7 +64,7 @@ html.dark {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans:
-    var(--font-sans);
+    var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring:
     var(--sidebar-ring);
@@ -195,7 +195,7 @@ html.light .app-surface .card-note {
   --popover-foreground:
     oklch(0.145 0 0);
   --primary:
-    oklch(0.205 0 0);
+    rgb(var(--brand-rgb));
   --primary-foreground:
     oklch(0.985 0 0);
   --secondary:
@@ -217,7 +217,7 @@ html.light .app-surface .card-note {
   --input:
     oklch(0.922 0 0);
   --ring:
-    oklch(0.708 0 0);
+    #8e72df;
   --chart-1:
     oklch(0.809 0.105 251.813);
   --chart-2:
@@ -1450,9 +1450,9 @@ html.light .sidebar-nav {
   --popover-foreground:
     oklch(0.985 0 0);
   --primary:
-    oklch(0.87 0.00 0);
+    rgb(var(--brand-rgb));
   --primary-foreground:
-    oklch(0.205 0 0);
+    oklch(0.985 0 0);
   --secondary:
     oklch(0.269 0 0);
   --secondary-foreground:
@@ -1472,7 +1472,7 @@ html.light .sidebar-nav {
   --input:
     oklch(1 0 0 / 15%);
   --ring:
-    oklch(0.556 0 0);
+    #a995e7;
   --chart-1:
     oklch(0.809 0.105 251.813);
   --chart-2:

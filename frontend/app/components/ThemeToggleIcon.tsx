@@ -7,12 +7,8 @@ import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useHydrated } from "../hooks/useHydrated";
 
-export default function ThemeToggleIcon({
-  className,
-}: {
-  className?: string;
-}) {
-  const { theme, setTheme, resolvedTheme } = useTheme();
+export default function ThemeToggleIcon({ className }: { className?: string }) {
+  const { theme, setTheme, resolvedTheme, forcedTheme } = useTheme();
   const hydrated = useHydrated();
   const pathname = usePathname() || "/";
   const isHome = pathname === "/";
@@ -21,15 +17,13 @@ export default function ThemeToggleIcon({
   const isDarkMode = current === "dark";
 
   const handleToggle = async () => {
-    if (!hydrated) return;
+    if (!hydrated || isHome || forcedTheme) return;
     const next = isDarkMode ? "light" : "dark";
-    if (isHome) {
-      setTheme(next);
-      return;
-    }
-    const transition = (document as unknown as {
-      startViewTransition?: (cb: () => void) => { ready: Promise<void> };
-    }).startViewTransition;
+    const transition = (
+      document as unknown as {
+        startViewTransition?: (cb: () => void) => { ready: Promise<void> };
+      }
+    ).startViewTransition;
     if (!transition || !buttonRef.current) {
       setTheme(next);
       return;
@@ -61,9 +55,11 @@ export default function ThemeToggleIcon({
         duration: 700,
         easing: "ease-in-out",
         pseudoElement: "::view-transition-new(root)",
-      } as KeyframeAnimationOptions
+      } as KeyframeAnimationOptions,
     );
   };
+
+  if (isHome || forcedTheme) return null;
 
   return (
     <button

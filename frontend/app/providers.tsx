@@ -29,17 +29,14 @@ function Shell({ children }: { children: React.ReactNode }) {
   return <AppShell>{children}</AppShell>;
 }
 
-export default function Providers({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const defaultAppearance =
-    process.env.NEXT_PUBLIC_APPEARANCE ?? "system";
+export default function Providers({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const defaultAppearance = process.env.NEXT_PUBLIC_APPEARANCE ?? "system";
   return (
     <ThemeProvider
       attribute="class"
       defaultTheme={defaultAppearance}
+      forcedTheme={pathname === "/" ? "dark" : undefined}
       enableSystem
       disableTransitionOnChange
     >
