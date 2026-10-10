@@ -56,9 +56,8 @@ function SettingsForm() {
             <ArrowLeft size={16} />
             我的项目
           </Link>
-          <p className="studio-eyebrow">创作设置</p>
-          <h1>连接你自己的模型</h1>
-          <p>按用途独立配置，随时更换。没有 Key 也可以先体验完整流程。</p>
+          <h1>模型与 API</h1>
+          <p>分别设置剧本、图片、视频和配音使用的服务地址、密钥与模型。</p>
         </div>
         <span className="studio-heading-icon">
           <KeyRound />

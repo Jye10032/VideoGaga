@@ -66,7 +66,7 @@ export default function ShotPanel({
   if (!shot)
     return (
       <Empty
-        title="将故事拆成一个个镜头"
+        title="还没有分镜"
         action={
           <Action onClick={add} disabled={disabled}>
             <Plus size={16} />

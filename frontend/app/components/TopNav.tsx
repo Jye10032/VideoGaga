@@ -15,7 +15,9 @@ export default function TopNav({ className }: { className?: string }) {
     ? "inspiration"
     : pathname.startsWith("/projects")
       ? "projects"
-      : null;
+      : pathname.startsWith("/settings")
+        ? "settings"
+        : null;
 
   return (
     <nav

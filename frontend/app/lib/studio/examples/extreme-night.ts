@@ -2,7 +2,7 @@ import { Asset, newShot, Shot, StudioData } from "../types";
 import { imageUpload } from "../media";
 import source from "./extreme-night.json";
 
-export const ACCEPTANCE_SAMPLE_NAME = source.name;
+export const ACCEPTANCE_SAMPLE_NAME = "极夜崩塌 · 示例项目";
 
 // A shortened acceptance story adapted from the supplied case2, not model output.
 // Stable designs live in assets; injuries, wardrobe and ownership changes live here.

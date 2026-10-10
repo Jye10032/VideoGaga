@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
+import { useHydrated } from "../hooks/useHydrated";
 
 type ThemedIconProps = {
   name: string;
@@ -17,11 +17,7 @@ export default function ThemedIcon({
   folder = "icons",
 }: ThemedIconProps) {
   const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useHydrated();
 
   const theme = mounted ? resolvedTheme : "dark";
   const base = folder === "icon" ? "/icon" : "/icons";

@@ -35,49 +35,54 @@ import AssetPanel from "./AssetPanel";
 import ShotPanel from "./ShotPanel";
 import { isDemo } from "../../lib/studio/repository";
 import { Shot } from "../../lib/studio/types";
+import {
+  lastStudioStep,
+  rememberStudioStep,
+  studioSteps,
+} from "../../lib/studio/navigation";
 
 const steps = [
   {
     title: "故事剧本",
     short: "剧本",
     icon: BookOpen,
-    description: "写下故事的起点，让角色和情节慢慢成形。",
+    description: "粘贴或编写剧本，拆解为角色、场景、道具和分镜。",
   },
   {
     title: "角色与资产",
     short: "资产",
     icon: Boxes,
-    description: "确认角色、场景和道具，为镜头建立可复用的素材。",
+    description: "上传或生成参考图，确认后供分镜引用。",
   },
   {
     title: "分镜工作台",
     short: "分镜",
     icon: Clapperboard,
-    description: "逐镜打磨画面、台词和节奏，局部修改，随时重做。",
+    description: "编辑画面、台词、时长与引用资产，逐镜生成图片。",
   },
   {
     title: "视频片段",
     short: "视频",
     icon: Film,
-    description: "按分镜生成片段，只重试需要调整的镜头。",
+    description: "按分镜生成视频，支持单独重做和批量补全。",
   },
   {
     title: "配音与对白",
     short: "配音",
     icon: Mic,
-    description: "为每段对白选择声音，也可以让镜头保持安静。",
+    description: "选择音色并生成对白，或将镜头设为静音。",
   },
   {
     title: "预览与导出",
     short: "导出",
     icon: Download,
-    description: "检查时间线，将当前版本保存为可播放的成片。",
+    description: "检查片段与配音，合成预览并下载视频、字幕。",
   },
 ];
 
 export default function StudioWorkspace({
   id,
-  initialStep = 0,
+  initialStep,
 }: {
   id: string;
   initialStep?: number;
@@ -111,7 +116,7 @@ export default function StudioWorkspace({
     );
   return <Workspace key={`${id}:${user}`} id={id} initialStep={initialStep} />;
 }
-function Workspace({ id, initialStep }: { id: string; initialStep: number }) {
+function Workspace({ id, initialStep }: { id: string; initialStep?: number }) {
   const router = useRouter(),
     {
       project,
@@ -124,7 +129,9 @@ function Workspace({ id, initialStep }: { id: string; initialStep: number }) {
       discardDraft,
     } = useStudio(id),
     generation = useGeneration(id, current, editData, flush);
-  const [step, setStep] = useState(initialStep),
+  const [step, setStep] = useState(
+      () => initialStep ?? lastStudioStep(id) ?? 0,
+    ),
     [notice, setNotice] = useState(""),
     [confirm, setConfirm] = useState<Confirmation | null>(null),
     [history, setHistory] = useState(false),
@@ -138,6 +145,7 @@ function Workspace({ id, initialStep }: { id: string; initialStep: number }) {
     } | null>(null);
   const abort = useRef<AbortController | null>(null),
     movieURL = useRef("");
+  const loadedId = project?.id;
   useEffect(
     () => () => {
       abort.current?.abort();
@@ -145,6 +153,13 @@ function Workspace({ id, initialStep }: { id: string; initialStep: number }) {
     },
     [],
   );
+  useEffect(() => {
+    if (!loadedId) return;
+    rememberStudioStep(id, step);
+    const url = new URL(window.location.href);
+    url.searchParams.set("step", studioSteps[step].key);
+    window.history.replaceState(null, "", url);
+  }, [id, step, loadedId]);
   useEffect(() => {
     const leave = (e: BeforeUnloadEvent) => {
       if (generation.busy || rendering) {
@@ -187,6 +202,28 @@ function Workspace({ id, initialStep }: { id: string; initialStep: number }) {
     total = data.shots.reduce((n, s) => n + s.duration, 0);
   const run = (kind: "text" | "image" | "video" | "audio", target: string) => {
     void generation.run(kind, target).catch(() => {});
+  };
+  const stageStatus = [
+    `${data.script.length.toLocaleString()} 字`,
+    `${data.assets.filter((asset) => asset.confirmed).length} / ${data.assets.length} 已确认`,
+    `${data.shots.length} 个镜头 · ${total} 秒`,
+    `${data.shots.filter((shot) => shot.video).length} / ${data.shots.length} 已生成`,
+    `${data.shots.filter((shot) => shot.muted || !shot.dialogue.trim() || shot.audio).length} / ${data.shots.length} 已就绪`,
+    `${data.shots.length} 个镜头 · ${total} 秒`,
+  ][step];
+  const pending = {
+    assets: data.assets
+      .filter((asset) => !asset.image)
+      .map((asset) => `asset:${asset.id}`),
+    images: data.shots
+      .filter((shot) => !shot.image)
+      .map((shot) => `shot:${shot.id}`),
+    videos: data.shots
+      .filter((shot) => !shot.video)
+      .map((shot) => `shot:${shot.id}`),
+    audio: data.shots
+      .filter((shot) => shot.dialogue.trim() && !shot.muted && !shot.audio)
+      .map((shot) => `shot:${shot.id}`),
   };
   function plan() {
     const action = () => {
@@ -399,10 +436,10 @@ function Workspace({ id, initialStep }: { id: string; initialStep: number }) {
         <section className="studio-main">
           <div className="studio-stage-heading">
             <div>
-              <p className="studio-eyebrow">
-                STEP {String(step + 1).padStart(2, "0")}
-              </p>
-              <h1>{stage.title}</h1>
+              <div className="studio-stage-title">
+                <h1>{stage.title}</h1>
+                <span className="studio-tag">{stageStatus}</span>
+              </div>
               <p>{stage.description}</p>
             </div>
             <div className="studio-toolbar">
@@ -418,73 +455,42 @@ function Workspace({ id, initialStep }: { id: string; initialStep: number }) {
               ) : step === 1 ? (
                 <Action
                   primary
-                  disabled={locked || !data.assets.length}
-                  onClick={() =>
-                    void generation.batch(
-                      "image",
-                      data.assets
-                        .filter((a) => !a.image)
-                        .map((a) => `asset:${a.id}`),
-                    )
-                  }
+                  disabled={locked || !pending.assets.length}
+                  title="仅生成缺少图片的资产"
+                  onClick={() => void generation.batch("image", pending.assets)}
                 >
                   <WandSparkles size={16} />
-                  生成缺失图片
+                  生成图片（{pending.assets.length}）
                 </Action>
               ) : step === 2 ? (
                 <Action
                   primary
-                  disabled={locked || !data.shots.length}
-                  onClick={() =>
-                    void generation.batch(
-                      "image",
-                      data.shots
-                        .filter((s) => !s.image)
-                        .map((s) => `shot:${s.id}`),
-                    )
-                  }
+                  disabled={locked || !pending.images.length}
+                  title="仅生成缺少图片的分镜"
+                  onClick={() => void generation.batch("image", pending.images)}
                 >
                   <WandSparkles size={16} />
-                  生成分镜图
+                  生成分镜图（{pending.images.length}）
                 </Action>
               ) : step === 3 ? (
                 <Action
                   primary
-                  disabled={locked || !ready[2]}
-                  onClick={() =>
-                    void generation.batch(
-                      "video",
-                      data.shots
-                        .filter((s) => !s.video)
-                        .map((s) => `shot:${s.id}`),
-                    )
-                  }
+                  disabled={locked || !ready[2] || !pending.videos.length}
+                  title="仅生成缺少视频的镜头"
+                  onClick={() => void generation.batch("video", pending.videos)}
                 >
                   <Play size={16} />
-                  生成缺失视频
+                  生成视频（{pending.videos.length}）
                 </Action>
               ) : step === 4 ? (
                 <Action
                   primary
-                  disabled={
-                    locked ||
-                    !data.shots.some(
-                      (s) => s.dialogue.trim() && !s.muted && !s.audio,
-                    )
-                  }
-                  onClick={() =>
-                    void generation.batch(
-                      "audio",
-                      data.shots
-                        .filter(
-                          (s) => s.dialogue.trim() && !s.muted && !s.audio,
-                        )
-                        .map((s) => `shot:${s.id}`),
-                    )
-                  }
+                  disabled={locked || !pending.audio.length}
+                  title="仅为未静音且缺少配音的对白生成音频"
+                  onClick={() => void generation.batch("audio", pending.audio)}
                 >
                   <Mic size={16} />
-                  生成缺失配音
+                  生成配音（{pending.audio.length}）
                 </Action>
               ) : (
                 <Action onClick={backup}>
@@ -498,8 +504,8 @@ function Workspace({ id, initialStep }: { id: string; initialStep: number }) {
             {demo && (
               <div className="studio-demo-note">
                 <Sparkles size={14} />
-                本地演示：画面为示意图或参考资产拼板，配音为提示音，不调用任何模型
-                API。
+                演示模式 · 使用示意画面 / 参考资产拼板与提示音，不消耗 API
+                额度。
               </div>
             )}
             {(error || notice || generation.error) && (
@@ -551,7 +557,7 @@ function Workspace({ id, initialStep }: { id: string; initialStep: number }) {
               <div className="studio-script-layout">
                 <section className="studio-panel studio-script-editor">
                   <div className="studio-panel-title">
-                    <h2>你的故事</h2>
+                    <h2>剧本正文</h2>
                     <span className="studio-helper">
                       {data.script.length.toLocaleString()} / 50,000 字
                     </span>
@@ -585,10 +591,8 @@ function Workspace({ id, initialStep }: { id: string; initialStep: number }) {
                     <span className="studio-note-icon">
                       <BookOpen size={22} />
                     </span>
-                    <h2>让想法更具体一点</h2>
-                    <p>
-                      谁是主角？他想要什么？有什么阻碍？故事最后发生了什么变化？
-                    </p>
+                    <h2>剧本格式建议</h2>
+                    <p>每段描述一个场景，写明出场角色、动作和环境。</p>
                     <p>
                       分段写场景，用「角色：台词」记录对白，拆解后仍然可以逐项修改。
                     </p>
@@ -837,8 +841,8 @@ function Workspace({ id, initialStep }: { id: string; initialStep: number }) {
                     ) : (
                       <div>
                         <Film size={48} />
-                        <h2>将镜头连成一个故事</h2>
-                        <p>生成预览后，可在这里播放和下载当前版本。</p>
+                        <h2>成片预览</h2>
+                        <p>补齐视频与配音后，点击「生成成片预览」。</p>
                       </div>
                     )}
                   </section>
@@ -846,7 +850,7 @@ function Workspace({ id, initialStep }: { id: string; initialStep: number }) {
                     <span className="studio-tag">
                       {data.ratio} · {demo ? "演示成片" : "当前版本"}
                     </span>
-                    <h2>准备好，开映。</h2>
+                    <h2>导出设置</h2>
                     <div className="studio-stat-pair">
                       <span>
                         <strong>{data.shots.length}</strong>镜头

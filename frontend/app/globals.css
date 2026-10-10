@@ -1512,3 +1512,187 @@ html.light .sidebar-nav {
     @apply font-sans;
   }
 }
+
+/* Home always uses its own fixed-black palette, including with a light workspace. */
+.home-launcher {
+  position: relative;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 110px 24px 48px;
+  background: #000;
+  color: #f5f4f8;
+}
+.home-launcher-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.home-launcher-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, #000b, #0004),
+    linear-gradient(0deg, #000b, #0003 55%, #0006);
+}
+.home-launcher-panel {
+  position: relative;
+  width: 100%;
+  max-width: 620px;
+  padding: 30px;
+  border: 1px solid #ffffff24;
+  border-radius: 16px;
+  background: #0a0a0ddd;
+  backdrop-filter: blur(18px);
+  box-shadow: 0 20px 70px #0004;
+}
+.home-launcher-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.home-launcher-brand > svg {
+  color: #b6a4f0;
+}
+.home-launcher-brand > span:last-child {
+  margin-left: auto;
+  color: #afabb8;
+  font-size: 11px;
+  font-weight: 400;
+}
+.home-launcher h1 {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  margin-bottom: 8px;
+}
+.home-launcher-panel > p {
+  font-size: 13px;
+  line-height: 1.8;
+  color: #bcb8c6;
+}
+.home-launcher-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 24px 0;
+}
+.home-launcher-actions > a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  font-size: 13px;
+  border: 1px solid #ffffff24;
+  border-radius: 9px;
+  background: #ffffff08;
+  transition: background 0.15s;
+}
+.home-launcher-actions > a > svg:last-child {
+  margin-left: auto;
+}
+.home-launcher-actions > a:hover {
+  background: #ffffff12;
+}
+.home-launcher-actions .home-launcher-create {
+  background: rgb(var(--brand-rgb));
+  border-color: rgb(var(--brand-rgb));
+  color: #fff;
+}
+.home-launcher-actions .home-launcher-create:hover {
+  background: #6545cb;
+}
+.home-launcher-links {
+  border-top: 1px solid #ffffff16;
+}
+.home-launcher-links > a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 17px 0;
+  border-bottom: 1px solid #ffffff16;
+}
+.home-launcher-links > a:hover strong {
+  color: #c1afff;
+}
+.home-launcher-links > a > svg {
+  color: #b2aabd;
+  flex-shrink: 0;
+}
+.home-launcher-links > a > svg:last-child {
+  margin-left: auto;
+}
+.home-launcher-links strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+}
+.home-launcher-links span {
+  display: block;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #a5a0b0;
+  margin-top: 4px;
+}
+.home-launcher-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 20px;
+  font-size: 10px;
+  color: #aaa4b5;
+}
+.home-launcher-footer > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  color: #c1afff;
+}
+.home-launcher a:focus-visible {
+  outline: 2px solid #c1afff;
+  outline-offset: 4px;
+}
+@media (max-width: 640px) {
+  .home-launcher {
+    padding: 96px 16px 28px;
+  }
+  .home-launcher-panel {
+    padding: 22px 18px;
+  }
+  .home-launcher-brand {
+    margin-bottom: 24px;
+    gap: 8px;
+  }
+  .home-launcher-brand > span:last-child {
+    font-size: 10px;
+  }
+  .home-launcher h1 {
+    font-size: 23px;
+  }
+  .home-launcher-actions {
+    gap: 9px;
+  }
+  .home-launcher-actions > a {
+    padding: 13px 10px;
+    gap: 7px;
+    font-size: 12px;
+  }
+  .app-topbar {
+    padding: 14px 16px;
+  }
+  .app-topbar nav {
+    gap: 16px;
+    font-size: 13px;
+  }
+  .app-topbar .top-right-controls {
+    gap: 8px;
+  }
+}

@@ -2,11 +2,12 @@
 
 /**
  * 迁移脚本：将硬编码的 white/xx 颜色替换为语义化 CSS 变量
- * 用法：node scripts/migrate-to-semantic-colors.js
+ * 用法：node scripts/migrate-to-semantic-colors.mjs
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // 颜色映射表
 const colorMap = {
@@ -70,7 +71,7 @@ const colorMap = {
 const skipFiles = [
   'node_modules',
   '.next',
-  'scripts/migrate-to-semantic-colors.js',
+  'scripts/migrate-to-semantic-colors.mjs',
 ];
 
 // 递归获取所有 tsx 文件
@@ -122,7 +123,7 @@ function replaceInFile(filePath) {
 
 // 主函数
 function main() {
-  const rootDir = path.join(__dirname, '..');
+  const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const files = getTsxFiles(path.join(rootDir, 'app'));
 
   console.log(`Found ${files.length} TSX files\n`);

@@ -44,11 +44,14 @@ export default function WorkflowStepHeader({
   const [editableTitle, setEditableTitle] = useState(displayTitle);
   const [titleDraft, setTitleDraft] = useState(displayTitle);
   const [titleDialogOpen, setTitleDialogOpen] = useState(false);
+  const [previousTitle, setPreviousTitle] = useState(displayTitle);
 
-  useEffect(() => {
+  // Reset the local edit when its source changes, before children render.
+  if (previousTitle !== displayTitle) {
+    setPreviousTitle(displayTitle);
     setEditableTitle(displayTitle);
     setTitleDraft(displayTitle);
-  }, [displayTitle]);
+  }
 
   useEffect(() => {
     steps.forEach((step) => {

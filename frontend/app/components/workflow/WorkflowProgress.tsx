@@ -42,11 +42,14 @@ export default function WorkflowProgress({
   const [editableTitle, setEditableTitle] = useState(displayTitle);
   const [titleDialogOpen, setTitleDialogOpen] = useState(false);
   const [titleDraft, setTitleDraft] = useState(displayTitle);
+  const [previousTitle, setPreviousTitle] = useState(displayTitle);
 
-  useEffect(() => {
+  // Reset the local edit when its source changes, before children render.
+  if (previousTitle !== displayTitle) {
+    setPreviousTitle(displayTitle);
     setEditableTitle(displayTitle);
     setTitleDraft(displayTitle);
-  }, [displayTitle]);
+  }
 
   const openTitleDialog = () => {
     setTitleDraft(editableTitle);
