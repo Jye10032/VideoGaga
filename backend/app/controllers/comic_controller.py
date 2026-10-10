@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.comic_schemas import (
     CreateProjectRequest,
@@ -52,8 +52,7 @@ async def generate_script(
     db: AsyncSession = Depends(get_db),
 ):
     """步骤3：生成剧本和场景（异步）"""
-    project, task_id = await service.generate_script(project_id, user.id, request, db)
-    return GenerateScriptResponse(project_id=project.id, task_id=task_id)
+    raise HTTPException(410, "旧剧本生成接口已停用，请使用创作工作台")
 
 
 @router.get("/projects/{project_id}", response_model=ProjectDetail)

@@ -50,3 +50,8 @@ async def require_admin(user: User = Depends(get_current_user)) -> User:
     if user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return user
+
+
+async def require_legacy_provider(user: User = Depends(get_current_user)) -> User:
+    # Kept only for a clear migration response; legacy routes trusted client user/task IDs.
+    raise HTTPException(status_code=410, detail="旧生成接口已停用，请使用创作工作台")

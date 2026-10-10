@@ -10,11 +10,11 @@ type LoginOverlayProps = {
   onLogin: (account: string) => void;
 };
 
-export default function LoginOverlay({
-  open,
-  onClose,
-  onLogin,
-}: LoginOverlayProps) {
+export default function LoginOverlay(props: LoginOverlayProps) {
+  return props.open ? <LoginForm {...props} /> : null;
+}
+
+function LoginForm({ open, onClose, onLogin }: LoginOverlayProps) {
   const googleAuthEnabled =
     process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
   const [isRegister, setIsRegister] = useState(false);
@@ -29,21 +29,6 @@ export default function LoginOverlay({
   } | null>(null);
 
   useEffect(() => {
-    if (!open) {
-      setAccount("");
-      setPassword("");
-      setInviteCode("");
-      setIsRegister(false);
-      setTypedText("");
-      setFeedback(null);
-    }
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) {
-      setTypedText("");
-      return;
-    }
     const target = "创造你的故事";
     let index = 0;
     let forward = true;
@@ -71,12 +56,19 @@ export default function LoginOverlay({
       }
     };
 
-    step();
+    timeoutId = window.setTimeout(step, 120);
     return () => window.clearTimeout(timeoutId);
   }, [open]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (
+      isRegister &&
+      (password.length < 10 || new TextEncoder().encode(password).length > 72)
+    ) {
+      setFeedback({ type: "error", message: "密码至少 10 位，最多 72 字节" });
+      return;
+    }
     if (!account || !password) {
       setFeedback({ type: "error", message: "请输入账号和密码" });
       return;
@@ -171,11 +163,7 @@ export default function LoginOverlay({
               </div>
             </div>
           </div>
-          <form
-            className="space-y-4"
-            onSubmit={handleSubmit}
-            autoComplete="on"
-          >
+          <form className="space-y-4" onSubmit={handleSubmit} autoComplete="on">
             <div>
               <label className="text-xs text-white/60" htmlFor="login-username">
                 账号
@@ -200,14 +188,19 @@ export default function LoginOverlay({
                 name={isRegister ? "new-password" : "current-password"}
                 autoComplete={isRegister ? "new-password" : "current-password"}
                 className="input-dark"
-                placeholder="请输入密码"
+                placeholder={
+                  isRegister ? "至少 10 位，最多 72 字节" : "请输入密码"
+                }
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
               />
             </div>
             {isRegister ? (
               <div>
-                <label className="text-xs text-white/60" htmlFor="register-invite-code">
+                <label
+                  className="text-xs text-white/60"
+                  htmlFor="register-invite-code"
+                >
                   邀请码
                 </label>
                 <input
@@ -249,10 +242,9 @@ export default function LoginOverlay({
           </form>
           {feedback ? (
             <p
-              className={`mt-3 text-xs ${feedback.type === "error"
-                  ? "text-red-400"
-                  : "text-emerald-400"
-                }`}
+              className={`mt-3 text-xs ${
+                feedback.type === "error" ? "text-red-400" : "text-emerald-400"
+              }`}
             >
               {feedback.message}
             </p>

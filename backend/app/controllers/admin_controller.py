@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import require_admin
@@ -54,4 +55,13 @@ async def delete_user(
     db: AsyncSession = Depends(get_db)
 ):
     service = AdminService(db)
-    return await service.delete_user(user_id)
+    return await service.update_user(user_id, False, admin.id)
+
+
+class UserStatusUpdate(BaseModel):
+    is_active: bool
+
+
+@router.patch("/users/{user_id}")
+async def update_user(user_id: str, req: UserStatusUpdate, admin: User = Depends(require_admin), db: AsyncSession = Depends(get_db)):
+    return await AdminService(db).update_user(user_id, req.is_active, admin.id)

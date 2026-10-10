@@ -47,7 +47,7 @@ function getGoogleStartPath(): string {
 }
 
 function isSafeInternalPath(path: string): boolean {
-  return path.startsWith("/") && !path.startsWith("//");
+  return path.startsWith("/") && !path.startsWith("//") && !path.includes("\\");
 }
 
 export const authApi = {
@@ -83,6 +83,9 @@ export const authApi = {
 
     const url = new URL(endpoint);
     url.searchParams.set("redirect_uri", callbackUrl);
+    const nonce = crypto.randomUUID();
+    sessionStorage.setItem("gaga-oauth-state", nonce);
+    url.searchParams.set("client_state", nonce);
 
     if (isSafeInternalPath(next)) {
       url.searchParams.set("next", next);

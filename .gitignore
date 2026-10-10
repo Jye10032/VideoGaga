@@ -53,3 +53,8 @@ yarn-error.log*
 next-env.d.ts
 
 CODEX.md
+
+*.db
+*.db-shm
+*.db-wal
+!.env.example

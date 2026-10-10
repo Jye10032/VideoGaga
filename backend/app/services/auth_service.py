@@ -2,10 +2,11 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode, urlparse, parse_qsl, urlunparse
 import secrets
 from sqlalchemy import select, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 import httpx
-from jose import jwt, JWTError
+import jwt
 from app.models.user import User
 from app.models.invite_code import InviteCode
 from app.schemas.auth_schemas import RegisterRequest, LoginRequest, TokenResponse, UserResponse
@@ -20,7 +21,7 @@ class AuthService:
 
     async def register(self, req: RegisterRequest) -> UserResponse:
         # Check invite code
-        result = await self.db.execute(select(InviteCode).where(InviteCode.code == req.invite_code))
+        result = await self.db.execute(select(InviteCode).where(InviteCode.code == req.invite_code).with_for_update())
         invite_code = result.scalar_one_or_none()
         if not invite_code:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="邀请码无效")
@@ -30,7 +31,7 @@ class AuthService:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="邀请码已过期")
 
         # Auto-generate email if not provided
-        email = req.email or f"{req.username}@videogaga.local"
+        email = str(req.email).lower() if req.email else f"{req.username}@videogaga.local"
 
         # Check if email or username exists
         result = await self.db.execute(
@@ -52,7 +53,11 @@ class AuthService:
 
         # Update invite code usage
         invite_code.used_count += 1
-        await self.db.commit()
+        try:
+            await self.db.commit()
+        except IntegrityError:
+            await self.db.rollback()
+            raise HTTPException(409, "账号已存在，请换一个用户名或直接登录")
         await self.db.refresh(user)
 
         return UserResponse(
@@ -86,7 +91,7 @@ class AuthService:
             created_at=user.created_at.isoformat()
         )
 
-    def get_google_login_url(self, frontend_redirect_uri: str, next_path: str = "/") -> str:
+    def get_google_login_url(self, frontend_redirect_uri: str, next_path: str = "/", client_state: str = "") -> str:
         """Build Google OAuth authorization URL."""
         if not self.settings.google_client_id or not self.settings.google_client_secret:
             raise HTTPException(
@@ -102,6 +107,7 @@ class AuthService:
             {
                 "redirect_uri": redirect_uri,
                 "next": safe_next,
+                "client_state": client_state,
             }
         )
 
@@ -152,26 +158,29 @@ class AuthService:
 
             google_userinfo = await self._fetch_google_userinfo(access_token, id_token)
             email = (google_userinfo.get("email") or "").strip().lower()
-            if not email:
+            if not email or google_userinfo.get("email_verified") is not True:
                 raise ValueError("missing_google_email")
 
-            user = await self._get_or_create_google_user(email, google_userinfo.get("name"))
+            user = await self._get_or_create_google_user(email, google_userinfo.get("name"), google_userinfo.get("sub"))
             if not user.is_active:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED, detail="账号已被禁用"
                 )
 
             app_token = create_access_token(user.id)
-            return self._append_query(
+            return self._append_fragment(
                 frontend_redirect_uri,
                 {
                     "access_token": app_token,
+                    "client_state": state_payload.get("client_state", ""),
                     "account": user.username,
                     "next": next_path,
                 },
             )
-        except Exception as exc:
-            return self._append_query(frontend_redirect_uri, {"error": str(exc)})
+        except HTTPException as exc:
+            return self._append_query(frontend_redirect_uri, {"error": str(exc.detail)})
+        except Exception:
+            return self._append_query(frontend_redirect_uri, {"error": "Google 登录失败，请重试"})
 
     async def _exchange_google_code_for_token(self, code: str) -> dict:
         callback_url = self._get_google_callback_url()
@@ -203,21 +212,21 @@ class AuthService:
             if resp.status_code == 200:
                 return resp.json()
 
-        # Fallback to id_token claims if endpoint failed and id_token is present.
-        if id_token:
-            try:
-                claims = jwt.get_unverified_claims(id_token)
-                return claims if isinstance(claims, dict) else {}
-            except Exception:
-                pass
-
         raise ValueError("google_userinfo_fetch_failed")
 
-    async def _get_or_create_google_user(self, email: str, display_name: str | None) -> User:
-        result = await self.db.execute(select(User).where(User.email == email))
-        user = result.scalar_one_or_none()
-        if user:
-            return user
+    async def _get_or_create_google_user(self, email: str, display_name: str | None, subject: str | None) -> User:
+        from app.models.oauth_identity import OAuthIdentity
+        if not subject or len(subject) > 255:
+            raise ValueError("missing_verified_subject")
+        identity = await self.db.get(OAuthIdentity, subject)
+        if identity:
+            user = await self.db.get(User, identity.user_id)
+            if user:
+                return user
+        existing = await self.db.scalar(select(User).where(User.email == email))
+        if existing:
+            # Password signup has no email verification: never auto-link by email alone.
+            raise HTTPException(409, "此邮箱已有账号，请使用密码登录；旧 Google 账号需管理员核实归属后恢复绑定")
 
         base_username = self._slugify_username(display_name or email.split("@")[0] or "google_user")
         username = await self._ensure_unique_username(base_username)
@@ -230,6 +239,8 @@ class AuthService:
             invite_code_id=None,
         )
         self.db.add(user)
+        await self.db.flush()
+        self.db.add(OAuthIdentity(subject=subject, user_id=user.id))
         await self.db.commit()
         await self.db.refresh(user)
         return user
@@ -277,35 +288,41 @@ class AuthService:
         if origin not in self._allowed_redirect_origins():
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="redirect_uri origin not allowed")
 
-        # Keep path/query if provided, but normalize fragments away.
+        if parsed.path != "/auth/google/callback" or parsed.query:
+            raise HTTPException(400, "invalid callback path")
+        # Use the dedicated callback only.
         return urlunparse((parsed.scheme, parsed.netloc, parsed.path or "/", parsed.params, parsed.query, ""))
 
     def _normalize_next_path(self, next_path: str | None) -> str:
         if not next_path:
             return "/"
-        if not next_path.startswith("/") or next_path.startswith("//"):
+        if not next_path.startswith("/") or next_path.startswith("//") or "\\" in next_path:
             return "/"
         return next_path
 
     def _encode_oauth_state(self, payload: dict) -> str:
         body = {
             **payload,
+            "type": "oauth_state",
+            "nonce": secrets.token_urlsafe(32),
             "exp": datetime.now(timezone.utc) + timedelta(minutes=10),
         }
         return jwt.encode(body, self.settings.jwt_secret, algorithm=self.settings.jwt_algorithm)
 
     def _decode_oauth_state(self, state: str | None) -> dict:
         if not state:
-            return {}
+            raise HTTPException(status_code=400, detail="登录验证已失效")
         try:
             data = jwt.decode(
                 state,
                 self.settings.jwt_secret,
                 algorithms=[self.settings.jwt_algorithm],
             )
-            return data if isinstance(data, dict) else {}
-        except JWTError:
-            return {}
+            if data.get("type") != "oauth_state" or not data.get("nonce"):
+                raise HTTPException(status_code=400, detail="登录验证已失效")
+            return data
+        except jwt.InvalidTokenError:
+            raise HTTPException(status_code=400, detail="登录验证已失效")
 
     def _default_frontend_callback(self) -> str:
         # Fallback only when state is missing/invalid.
@@ -322,3 +339,7 @@ class AuthService:
         return urlunparse(
             (parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, "")
         )
+
+    def _append_fragment(self, base_url: str, values: dict[str, str]) -> str:
+        parsed = urlparse(base_url)
+        return urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", "", urlencode(values)))

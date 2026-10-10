@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { authApi } from "../../../lib/api/auth";
@@ -10,14 +10,27 @@ export default function GoogleCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const result = useMemo(
-    () => authApi.parseGoogleCallback(searchParams),
-    [searchParams]
-  );
-  const error = result.ok ? null : result.error;
+  const consumed = useRef(false);
+  const [result, setResult] = useState<ReturnType<
+    typeof authApi.parseGoogleCallback
+  > | null>(null);
+  useEffect(() => {
+    if (consumed.current) return;
+    consumed.current = true;
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const expected = sessionStorage.getItem("gaga-oauth-state");
+    sessionStorage.removeItem("gaga-oauth-state");
+    setResult(
+      expected && params.get("client_state") === expected
+        ? authApi.parseGoogleCallback(params)
+        : { ok: false, error: "登录验证已失效，请从登录按钮重新开始" },
+    );
+    window.history.replaceState(null, "", window.location.pathname);
+  }, [searchParams]);
+  const error = result && !result.ok ? result.error : null;
 
   useEffect(() => {
-    if (!result.ok) {
+    if (!result?.ok) {
       return;
     }
 
@@ -50,7 +63,9 @@ export default function GoogleCallbackPage() {
         ) : (
           <>
             <h1 className="text-lg font-semibold">正在完成登录...</h1>
-            <p className="mt-3 text-sm text-[var(--text-primary)]">请稍候，正在跳转</p>
+            <p className="mt-3 text-sm text-[var(--text-primary)]">
+              请稍候，正在跳转
+            </p>
           </>
         )}
       </div>

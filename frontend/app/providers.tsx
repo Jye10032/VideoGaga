@@ -22,6 +22,7 @@ function AuthOverlay() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/";
+  if (pathname.startsWith("/studio/")) return <>{children}</>;
   if (pathname.startsWith("/workflows")) {
     return <WorkflowShell>{children}</WorkflowShell>;
   }

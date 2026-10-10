@@ -23,18 +23,13 @@ def init_db():
     # Convert postgresql:// to postgresql+asyncpg:// for async support
     if db_url.startswith("postgresql://"):
         db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-    # Create SSL context that doesn't verify certificates (for Railway self-signed certs)
-    ssl_context = ssl.create_default_context()
-    ssl_context.check_hostname = False
-    ssl_context.verify_mode = ssl.CERT_NONE
-
-    print(f"Connecting to database: {db_url[:30]}...")
-    engine = create_async_engine(
-        db_url,
-        echo=False,
-        connect_args={"timeout": 10, "ssl": ssl_context},
-        pool_pre_ping=True,
-    )
+    connect_args = {}
+    if db_url.startswith("postgresql+asyncpg:"):
+        # Private-network development may opt out; TLS certificates are verified by default.
+        connect_args = {"timeout": 10}
+        if settings.database_ssl_mode != "disable":
+            connect_args["ssl"] = ssl.create_default_context()
+    engine = create_async_engine(db_url, echo=False, connect_args=connect_args, pool_pre_ping=True)
     AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
@@ -42,7 +37,8 @@ async def get_db():
     if AsyncSessionLocal is None:
         init_db()
     if AsyncSessionLocal is None:
-        raise RuntimeError("Database not configured")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail="账号服务尚未配置，可先使用本地演示")
     async with AsyncSessionLocal() as session:
         yield session
 
@@ -53,6 +49,7 @@ async def create_tables():
     if engine:
         # Import all models to register them with Base.metadata
         from app.models.user import User
+        from app.models.oauth_identity import OAuthIdentity
         from app.models.invite_code import InviteCode
         from app.models.task_record import TaskRecord
         from app.models.project import Project
@@ -60,6 +57,7 @@ async def create_tables():
         from app.models.script import Script
         from app.models.scene import Scene
         from app.models.generation_task import GenerationTask
+        from app.studio.models import StudioDocument
 
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -68,21 +66,24 @@ async def create_tables():
 
 
 async def create_initial_invite_code():
-    """Create initial admin invite code if none exists"""
+    """Opt-in bootstrap: no public/default administrator credential."""
     from app.models.invite_code import InviteCode
-
+    from app.models.user import User
+    settings = get_settings()
+    code_value = settings.bootstrap_admin_invite
     if AsyncSessionLocal is None:
         return
-
     async with AsyncSessionLocal() as session:
-        result = await session.execute(select(InviteCode).limit(1))
-        if result.scalar_one_or_none() is None:
-            code = InviteCode(
-                code="a1bxB0c41FDHPd1",
-                is_admin_code=True,
-                max_uses=10,
-                used_count=0
-            )
-            session.add(code)
-            await session.commit()
-            print("Initial admin invite code created: a1bxB0c41FDHPd1")
+        # Revoke the previously published bootstrap invitation on existing installations.
+        old = await session.scalar(select(InviteCode).where(InviteCode.code == "a1bxB0c41FDHPd1"))
+        if old:
+            from datetime import datetime
+            old.expires_at = datetime.utcnow()
+        has_admin = await session.scalar(select(User.id).where(User.role == "admin").limit(1))
+        if code_value and not has_admin:
+            if not 16 <= len(code_value) <= 32:
+                raise RuntimeError("BOOTSTRAP_ADMIN_INVITE must be 16 to 32 characters")
+            existing = await session.scalar(select(InviteCode).where(InviteCode.code == code_value))
+            if not existing:
+                session.add(InviteCode(code=code_value, is_admin_code=True, max_uses=1, used_count=0))
+        await session.commit()

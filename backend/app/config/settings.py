@@ -3,6 +3,9 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
+    database_ssl_mode: str = "verify-full"
+    bootstrap_admin_invite: str = ""
+
     # Baidu BCE
     baidu_ak: str = ""
     baidu_sk: str = ""

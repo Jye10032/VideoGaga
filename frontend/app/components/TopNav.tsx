@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const navItems = [
   { id: "inspiration", label: "灵感广场", href: "/inspiration" },
   { id: "projects", label: "我的项目", href: "/projects" },
+  { id: "settings", label: "API 设置", href: "/settings" },
 ];
 
 export default function TopNav({ className }: { className?: string }) {
