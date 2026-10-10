@@ -5,6 +5,14 @@ from functools import lru_cache
 class Settings(BaseSettings):
     database_ssl_mode: str = "verify-full"
     bootstrap_admin_invite: str = ""
+    # Comma-separated browser origins; configure the deployed frontend explicitly.
+    cors_allowed_origins: str = (
+        "http://localhost:3000,"
+        "https://videogaga.cc,"
+        "https://www.videogaga.cc,"
+        "https://frontend-production-6914.up.railway.app,"
+        "https://videogaga-production.up.railway.app"
+    )
 
     # Baidu BCE
     baidu_ak: str = ""

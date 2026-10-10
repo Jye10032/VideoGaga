@@ -13,7 +13,9 @@ from app.controllers.compose_controller import router as compose_router
 from app.controllers.suno_controller import router as suno_router
 from app.controllers.comic_controller import router as comic_router
 from app.controllers.generation_controller import router as generation_router
-from app.core.database import create_tables, init_db
+from app.core.database import create_tables, init_db, get_db
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import require_legacy_provider
 from app.config import get_settings
 from app.studio.routes import router as studio_router
@@ -31,15 +33,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Video Gaga Backend", version="0.1.0", lifespan=lifespan)
 
+ALLOWED_ORIGINS = [
+    origin.strip().rstrip("/")
+    for origin in get_settings().cors_allowed_origins.split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://videogaga.cc",
-        "https://www.videogaga.cc",
-        "https://frontend-production-6914.up.railway.app",
-        "https://videogaga-production.up.railway.app",
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -57,16 +59,6 @@ app.include_router(suno_router, dependencies=[Depends(require_legacy_provider)])
 app.include_router(comic_router, prefix="/api/v1")
 app.include_router(studio_router, prefix="/api/v1")
 app.include_router(generation_router, dependencies=[Depends(require_legacy_provider)], prefix="/api/v1")
-
-# 允许的域名列表（用于 CORS）
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "https://videogaga.cc",
-    "https://www.videogaga.cc",
-    "https://frontend-production-6914.up.railway.app",
-    "https://videogaga-production.up.railway.app",
-]
-
 
 def get_cors_headers(request: Request) -> dict:
     """根据请求的 Origin 返回 CORS 头"""
@@ -100,6 +92,15 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.get("/health")
 async def health_check():
+    return {"status": "ok"}
+
+
+@app.get("/ready")
+async def readiness_check(db: AsyncSession = Depends(get_db)):
+    try:
+        await db.execute(text("SELECT 1"))
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "unavailable"})
     return {"status": "ok"}
 
 
